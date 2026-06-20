@@ -82,6 +82,10 @@ impl StorageEngine {
         Ok(assigned_offset)
     }
 
+    pub fn current_offset(&self) -> u64 {
+        self.current_offset
+    }
+
     pub fn read(&self, offset: u64) -> io::Result<Option<Vec<u8>>> {
         if offset == 0 || offset >= self.current_offset {
             return Ok(None);

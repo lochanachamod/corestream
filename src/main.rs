@@ -1,7 +1,7 @@
 use clap::Parser;
 use corestream::messages::cluster_message::Payload;
 use corestream::messages::{
-    AppendEntries, AppendEntriesResponse, ClusterMessage, ConsumerRequest, ConsumerResponse, ProducerPayload, RequestVote, ServerAck, VoteResponse,
+    AppendEntries, AppendEntriesResponse, ClusterMessage, ConsumerRequest, ConsumerResponse, ProducerPayload, RequestVote, ServerAck, VoteResponse, TelemetryRequest, TelemetryResponse,
 };
 use corestream::storage::StorageEngine;
 use prost::Message;
@@ -16,6 +16,7 @@ use tokio::time::sleep;
 const MSG_TYPE_PRODUCER: u8 = 0;
 const MSG_TYPE_CLUSTER: u8 = 1;
 const MSG_TYPE_CONSUMER: u8 = 2;
+const MSG_TYPE_TELEMETRY: u8 = 3;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -345,6 +346,37 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 error_message: e.to_string(),
                                 payload_bytes: vec![],
                             },
+                        };
+
+                        let mut resp_buf = Vec::new();
+                        resp.encode(&mut resp_buf).unwrap();
+                        let resp_len = (resp_buf.len() as u32).to_be_bytes();
+                        let _ = socket.write_all(&resp_len).await;
+                        let _ = socket.write_all(&resp_buf).await;
+                    }
+                } else if msg_type == MSG_TYPE_TELEMETRY {
+                    if let Ok(_req) = TelemetryRequest::decode(&payload_buf[..]) {
+                        let (role_str, term, commit_idx) = {
+                            let state = raft_clone.lock().await;
+                            let role_str = match state.role {
+                                NodeRole::Leader => "Leader",
+                                NodeRole::Candidate => "Candidate",
+                                NodeRole::Follower => "Follower",
+                            };
+                            (role_str.to_string(), state.current_term, state.commit_index)
+                        };
+
+                        let storage_offset = {
+                            let engine = storage_clone.lock().await;
+                            engine.current_offset()
+                        };
+
+                        let resp = TelemetryResponse {
+                            node_id,
+                            role: role_str,
+                            current_term: term,
+                            commit_index: commit_idx,
+                            storage_offset,
                         };
 
                         let mut resp_buf = Vec::new();

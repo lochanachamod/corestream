@@ -70,3 +70,15 @@ message ConsumerResponse {
     string error_message = 2;
     bytes payload_bytes = 3; // Zero-copy raw binary read from disk
 }
+
+// Sent by an AI or Telemetry monitor to check node health
+message TelemetryRequest {
+}
+
+message TelemetryResponse {
+    uint32 node_id = 1;
+    string role = 2;
+    uint64 current_term = 3;
+    uint64 commit_index = 4;
+    uint64 storage_offset = 5;
+}
