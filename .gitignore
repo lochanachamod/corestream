@@ -1,1 +1,16 @@
-/target
+# Rust Build Artifacts
+/target/
+
+# CoreStream Data Directories (Ignored so we don't commit databases to GitHub)
+data_node_*/
+
+# Node.js Dependencies
+node_modules/
+corestream-node/node_modules/
+
+# Python Environments
+venv/
+__pycache__/
+
+# General Log Files
+*.log
