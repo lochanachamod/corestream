@@ -1,36 +1,36 @@
 <div align="center">
-  <img src="assets/banner.png" alt="CoreStream Banner" width="100%">
   
-  <h1>CoreStream</h1>
-  <p><b>A hyper-fast, partition-tolerant, zero-copy distributed binary message broker.</b></p>
+# 🚀 CoreStream
 
-  [![Rust](https://img.shields.io/badge/Rust-1.70+-orange.svg?style=for-the-badge&logo=rust)](https://www.rust-lang.org/)
-  [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
-  [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=for-the-badge)](http://makeapullrequest.com)
+**A High-Performance, Distributed Event Streaming Engine built in Rust.**
 
-  <p>
-    <a href="#-why-corestream">Why CoreStream?</a> •
-    <a href="#-architecture">Architecture</a> •
-    <a href="#-getting-started">Getting Started</a> •
-    <a href="#-contributing">Contributing</a>
-  </p>
+[![Rust](https://img.shields.io/badge/rust-%23000000.svg?style=for-the-badge&logo=rust&logoColor=white)](https://www.rust-lang.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
+[![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg?style=for-the-badge)]()
+[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg?style=for-the-badge)]()
+
+*A lightweight, natively compiled alternative to Apache Kafka and RabbitMQ.*
+
 </div>
 
 ---
 
-## ⚡ Why CoreStream?
+## ⚡ Overview
 
-CoreStream is built from scratch as a lightweight, bare-metal alternative to heavyweight event streaming platforms like **Apache Kafka** or **RabbitMQ**. It forces data through the absolute lowest levels of the OS to guarantee maximum throughput and zero data loss.
+**CoreStream** is a distributed commit log and event messaging broker written from scratch in Rust. It was built to solve the complexities of massive-scale telemetry, microservice event-sourcing, and real-time data pipelines without the JVM overhead of traditional enterprise streaming platforms.
 
-If you need to process millions of transactions, logs, or events per second without the overhead of the JVM or heavy HTTP frameworks, CoreStream is your engine.
+By leveraging **OS-level Memory Mapped Files (mmap)**, **Zero-Copy Reads**, and the **Raft Consensus Algorithm**, CoreStream achieves blistering throughput with guaranteed fault tolerance across distributed node clusters.
 
-### 🔑 Key Features
-* **Zero HTTP/REST:** 100% raw asynchronous TCP socket networking via `tokio`. No bloated HTTP overhead.
-* **Protobuf Native:** Fully utilizes Google Protocol Buffers for dense, serialized binary communication.
-* **Memory-Mapped Storage:** Bypasses traditional SQL overhead. Writes sequentially to an append-only commit log (`.dat`), utilizing `mmap` for instant, high-speed RAM-to-disk index lookups.
-* **Raft Consensus Built-in:** Implements the Raft Protocol from scratch. Provides Leader Election, Heartbeats, and Quorum-based Log Replication (2/3 nodes) out of the box to guarantee partition-tolerance.
-* **Zero-Copy Consumer Reads:** Fetches data straight from the Linux OS Page Cache and blasts it into the outbound TCP network socket via `pread`, completely bypassing user-space memory allocation.
-* **AI Telemetry Hook:** Exposes an internal raw TCP telemetry multiplexer hook to allow external autonomous AI Agents to read real-time cluster state, replica lag, and leader status.
+---
+
+## ✨ Enterprise Features
+
+- 🏎️ **Zero-Copy Architecture:** Consumers read data directly from the OS Page Cache via `std::os::unix::fs::FileExt`, bypassing user-space memory entirely for maximum throughput.
+- 🧠 **Raft Consensus & High Availability:** Nodes automatically hold cryptographic elections, assign Leaders, and continuously replicate logs to Followers to guarantee fault tolerance if a server crashes.
+- 🗂️ **Multi-Topic Partitions:** Dynamically routes incoming data into isolated topic directories and dedicated `mmap` indices, allowing tens of thousands of consumers to read different topics entirely in parallel.
+- 🧹 **Automated Garbage Collection:** Logs are dynamically rotated into size-bounded segments. A background asynchronous thread continuously sweeps and purges historical segments older than the retention policy (e.g., 7 days) to protect hard drive space.
+- 🔒 **Zero-Trust Security:** Built-in TCP Firewall. All cluster nodes, producers, and consumers must complete a Protobuf-encoded API Key Handshake before establishing a stream, instantly severing unauthorized connections.
+- 📡 **Agentic AI Telemetry:** Includes a raw TCP HTTP Bridge and web dashboard for real-time visualization of the Raft cluster state, Leader elections, and internal storage offsets.
 
 ---
 
@@ -38,78 +38,92 @@ If you need to process millions of transactions, logs, or events per second with
 
 ```mermaid
 graph TD
-    P[Producer Client] -->|Raw TCP + Protobuf| L[Leader Node]
-    L -->|mmap Append| D1[(commit_log.dat)]
-    L -->|Raft Replication| F1[Follower Node 1]
-    L -->|Raft Replication| F2[Follower Node 2]
-    F1 --> D2[(commit_log.dat)]
-    F2 --> D3[(commit_log.dat)]
-    L -.->|ServerAck| P
-    C[Consumer Client] -->|Zero-Copy pread| L
+    P[Python SDK Producer] -->|Auth Handshake + Payload| L((Leader Node))
+    N[Node.js SDK Producer] -->|Auth Handshake + Payload| L
+    
+    L -->|Raft AppendEntries| F1((Follower Node 1))
+    L -->|Raft AppendEntries| F2((Follower Node 2))
+    
+    L -->|Topic Routing| T1[(/trade_logs Segment Array)]
+    L -->|Topic Routing| T2[(/system_metrics Segment Array)]
+    
+    C1[Consumer Group A] -.->|Zero-Copy Read| T1
+    C2[Consumer Group B] -.->|Zero-Copy Read| T2
 ```
 
 ---
 
 ## 🚀 Getting Started
 
-### Prerequisites
-* **Rust Toolchain:** `1.70+`
-* **Protobuf Compiler:** `protoc`
-* **Environment:** Designed for Linux environments (native or WSL2). Windows environments will incur I/O penalties due to native file-locking differences.
+### 1. Booting the Cluster
 
-### Installation
-Clone the repository:
+You can spin up a highly available 3-node cluster on your local machine instantly.
+
+**Terminal 1 (Node 1):**
 ```bash
-git clone https://github.com/lochanachamod/corestream.git
-cd corestream
-cargo build
+cargo run --bin corestream -- --node-id 1 --port 9092 --peers 127.0.0.1:9093,127.0.0.1:9094
 ```
 
-### Quick Start: Spin up a Local Cluster
-
-**1. Boot the Nodes (Open 3 separate terminals):**
+**Terminal 2 (Node 2):**
 ```bash
-# Terminal 1
-cargo run --bin corestream -- --node-id 1 --port 9092 --peers 127.0.0.1:9093,127.0.0.1:9094
-
-# Terminal 2
 cargo run --bin corestream -- --node-id 2 --port 9093 --peers 127.0.0.1:9092,127.0.0.1:9094
+```
 
-# Terminal 3
+**Terminal 3 (Node 3):**
+```bash
 cargo run --bin corestream -- --node-id 3 --port 9094 --peers 127.0.0.1:9092,127.0.0.1:9093
 ```
-*Wait 2 seconds. The cluster will negotiate and automatically elect a LEADER.*
+*The nodes will immediately communicate, hold a Raft election, and declare a Leader!*
 
-**2. Open the AI Telemetry Dashboard:**
+---
+
+### 2. Monitoring the Cluster
+
+Start the HTTP Telemetry bridge to monitor the health of your Raft consensus in real time.
 ```bash
-# Terminal 4
-cargo run --bin telemetry
+cargo run --bin telemetry -- --serve
+```
+Open your browser to `dashboard.html` to view the beautiful visualization of your active nodes.
+
+---
+
+## 💻 Official Client SDKs
+
+CoreStream includes native Client SDKs that handle TCP socket connections, dynamic Protobuf serialization, and security handshakes out of the box.
+
+### Python SDK
+Located in `/corestream-python/corestream.py`
+```python
+from corestream import CoreStreamClient
+
+# Connect to the Leader Node with your secret API Key
+client = CoreStreamClient("127.0.0.1", 9092, "super_secret_corestream_key")
+
+# Publish binary data to any topic dynamically
+client.produce("payment_logs", b"User #8493 Paid $50.00")
 ```
 
-**3. Produce and Consume Messages:**
-```bash
-# Terminal 5: Blast binary payloads into the Leader
-cargo run --bin producer
+### Node.js SDK
+Located in `/corestream-node/corestream.js`
+```javascript
+const CoreStreamClient = require('./corestream');
 
-# Fetch the raw data back using Zero-Copy reads
-cargo run --bin consumer
+(async () => {
+    // Connect to the Leader Node
+    const client = new CoreStreamClient('127.0.0.1', 9092, 'super_secret_corestream_key');
+    await client.connect();
+
+    // Publish data asynchronously
+    await client.produce('clickstream', 'User clicked the checkout button.');
+})();
 ```
 
 ---
 
-## 🤝 Contributing
+## 🛡️ License
 
-CoreStream is a raw infrastructure project and a rite of passage for backend engineers. We are actively looking for contributors to help expand its capabilities!
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-**Future Roadmap / Good First Issues:**
-- [ ] Implement dynamic batch-window sizing for high-latency follower links.
-- [ ] Implement multi-topic partitions.
-- [ ] Build a local CLI tool to inspect the raw `commit_log.dat`.
-- [ ] Add TLS support to the raw TCP streams.
-
-To contribute, simply fork the repository, create a feature branch, and submit a PR.
-
----
 <div align="center">
-<i>Built with 🦀 Rust and raw Unix I/O.</i>
+  <i>Built with ❤️ for High-Performance Distributed Systems.</i>
 </div>
