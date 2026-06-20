@@ -74,7 +74,28 @@ async fn broadcast_cluster_message(peers: &[String], msg: ClusterMessage) {
         let len_bytes = len;
         let payload_bytes = buf.clone();
         tokio::spawn(async move {
-            if let Ok(mut stream) = tokio::time::timeout(Duration::from_millis(50), TcpStream::connect(&peer_addr)).await.unwrap_or(Err(std::io::Error::from(std::io::ErrorKind::TimedOut))) {
+            let connect_future = async {
+                if let Ok(mut s) = TcpStream::connect(&peer_addr).await {
+                    let auth = corestream::messages::AuthHandshake {
+                        api_key: std::env::var("CORESTREAM_API_KEY").unwrap_or_else(|_| "super_secret_corestream_key".to_string()),
+                    };
+                    let mut auth_buf = Vec::new();
+                    auth.encode(&mut auth_buf).unwrap();
+                    let auth_len = (auth_buf.len() as u32 + 1).to_be_bytes();
+                    
+                    let _ = s.write_all(&auth_len).await;
+                    let _ = s.write_all(&[4]).await; // MSG_TYPE_AUTH
+                    let _ = s.write_all(&auth_buf).await;
+                    
+                    let mut ack = [0u8; 1];
+                    if s.read_exact(&mut ack).await.is_ok() && ack[0] == 1 {
+                        return Ok(s);
+                    }
+                }
+                Err(std::io::Error::from(std::io::ErrorKind::ConnectionRefused))
+            };
+
+            if let Ok(mut stream) = tokio::time::timeout(Duration::from_millis(50), connect_future).await.unwrap_or(Err(std::io::Error::from(std::io::ErrorKind::TimedOut))) {
                 let _ = stream.write_all(&len_bytes).await;
                 let _ = stream.write_all(&[MSG_TYPE_CLUSTER]).await;
                 let _ = stream.write_all(&payload_bytes).await;
@@ -181,6 +202,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let node_id = args.node_id;
         
         tokio::spawn(async move {
+            let expected_api_key = std::env::var("CORESTREAM_API_KEY").unwrap_or_else(|_| "super_secret_corestream_key".to_string());
+            let mut authenticated = false;
+
             loop {
                 let mut len_buf = [0u8; 4];
                 if socket.read_exact(&mut len_buf).await.is_err() { return; }
@@ -194,6 +218,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let mut payload_buf = vec![0u8; total_len - 1];
                 if socket.read_exact(&mut payload_buf).await.is_err() { return; }
                 
+                // -- SECURITY CHECKPOINT --
+                if !authenticated {
+                    if msg_type == 4 { // MSG_TYPE_AUTH
+                        if let Ok(auth) = corestream::messages::AuthHandshake::decode(&payload_buf[..]) {
+                            if auth.api_key == expected_api_key {
+                                authenticated = true;
+                                let _ = socket.write_all(&[1]).await; // Auth Success
+                                continue;
+                            }
+                        }
+                    }
+                    println!("[SECURITY] Rejected connection! Invalid API Key.");
+                    let _ = socket.write_all(&[0]).await; // Auth Failed
+                    return;
+                }
+
                 if msg_type == MSG_TYPE_CLUSTER {
                     if let Ok(cluster_msg) = ClusterMessage::decode(&payload_buf[..]) {
                         let mut state = raft_clone.lock().await;

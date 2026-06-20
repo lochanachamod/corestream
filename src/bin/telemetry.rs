@@ -65,6 +65,24 @@ async fn fetch_cluster_state() -> String {
 
         match tokio::time::timeout(Duration::from_millis(500), TcpStream::connect(addr)).await {
             Ok(Ok(mut stream)) => {
+                // -- AUTHENTICATE --
+                let auth = corestream::messages::AuthHandshake {
+                    api_key: std::env::var("CORESTREAM_API_KEY").unwrap_or_else(|_| "super_secret_corestream_key".to_string()),
+                };
+                let mut auth_buf = Vec::new();
+                auth.encode(&mut auth_buf).unwrap();
+                let auth_len = (auth_buf.len() as u32 + 1).to_be_bytes();
+                
+                let _ = stream.write_all(&auth_len).await;
+                let _ = stream.write_all(&[4]).await; // MSG_TYPE_AUTH
+                let _ = stream.write_all(&auth_buf).await;
+                
+                let mut ack = [0u8; 1];
+                if stream.read_exact(&mut ack).await.is_err() || ack[0] != 1 {
+                    status = "AUTH_FAILED".to_string();
+                    continue;
+                }
+
                 let req = TelemetryRequest {};
                 let mut req_buf = Vec::new();
                 req.encode(&mut req_buf).unwrap();

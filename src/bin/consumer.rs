@@ -12,7 +12,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Consumer connecting to CoreStream at {}", addr);
     
     let mut stream = TcpStream::connect(addr).await?;
-    println!("Connected successfully! Beginning Zero-Copy read of logs...\n");
+    
+    // -- AUTHENTICATE --
+    let auth = corestream::messages::AuthHandshake {
+        api_key: std::env::var("CORESTREAM_API_KEY").unwrap_or_else(|_| "super_secret_corestream_key".to_string()),
+    };
+    let mut auth_buf = Vec::new();
+    auth.encode(&mut auth_buf).unwrap();
+    let auth_len = (auth_buf.len() as u32 + 1).to_be_bytes();
+    
+    stream.write_all(&auth_len).await?;
+    stream.write_all(&[4]).await?; // MSG_TYPE_AUTH
+    stream.write_all(&auth_buf).await?;
+    
+    let mut ack = [0u8; 1];
+    stream.read_exact(&mut ack).await?;
+    if ack[0] != 1 {
+        println!("❌ Security Exception: Authentication failed! The Server rejected the API Key.");
+        return Ok(());
+    }
+
+    println!("✅ Authenticated successfully! Beginning Zero-Copy read of logs...\n");
 
     let start = Instant::now();
     let mut offsets_fetched = 0;

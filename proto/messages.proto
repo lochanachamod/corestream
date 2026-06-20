@@ -3,9 +3,14 @@ syntax = "proto3";
 package corestream;
 
 message ProducerPayload {
-    string topic = 1;
-    bytes data = 2;
+    bytes data = 1;
+    string topic = 2;
     uint64 timestamp = 3;
+}
+
+// Sent immediately upon TCP connection to authenticate
+message AuthHandshake {
+    string api_key = 1;
 }
 
 // The acknowledgment sent back from the leader node
