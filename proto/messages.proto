@@ -15,3 +15,17 @@ message ServerAck {
     string error_message = 2;
     uint64 offset = 3; // The log offset where this was saved
 }
+
+// Inter-Node communication for Clustering & Raft
+message ClusterMessage {
+    uint32 sender_node_id = 1;
+    
+    // Using oneof so we can easily add Raft specific payloads later
+    oneof payload {
+        ClusterPing ping = 2;
+    }
+}
+
+message ClusterPing {
+    bool is_leader = 1;
+}

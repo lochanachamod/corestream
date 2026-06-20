@@ -1,0 +1,8 @@
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.08s
+     Running `target/debug/corestream --node-id 1 --port 9092 --peers '127.0.0.1:9093,127.0.0.1:9094'`
+CoreStream Node 1 starting on 127.0.0.1:9092
+Configured peers: ["127.0.0.1:9093", "127.0.0.1:9094"]
+[Cluster] Heartbeat from Node 2 | is_leader: false
+[Cluster] Heartbeat from Node 3 | is_leader: false
+[Cluster] Heartbeat from Node 2 | is_leader: false
+[Cluster] Heartbeat from Node 3 | is_leader: false
