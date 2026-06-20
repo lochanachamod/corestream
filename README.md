@@ -15,22 +15,35 @@
 
 ---
 
-## ⚡ Overview
+## ⚡ Overview & Benefits
 
-**CoreStream** is a distributed commit log and event messaging broker written from scratch in Rust. It was built to solve the complexities of massive-scale telemetry, microservice event-sourcing, and real-time data pipelines without the JVM overhead of traditional enterprise streaming platforms.
+**CoreStream** is a distributed commit log and event messaging broker written from scratch in Rust. It was built to solve the complexities of massive-scale telemetry, microservice event-sourcing, and real-time data pipelines without the JVM memory overhead of traditional enterprise streaming platforms.
 
-By leveraging **OS-level Memory Mapped Files (mmap)**, **Zero-Copy Reads**, and the **Raft Consensus Algorithm**, CoreStream achieves blistering throughput with guaranteed fault tolerance across distributed node clusters.
+**Why use CoreStream?**
+1. **Lightweight & Fast**: Compiled natively in Rust, memory footprint is a fraction of Kafka's.
+2. **Highly Available**: If a server catches on fire, the cluster automatically heals itself via Raft Consensus.
+3. **Infinite Scaling**: Dynamic topic partitions allow an infinite number of consumers to read different topics simultaneously without bottlenecking disk I/O.
+4. **Self-Managing**: Built-in garbage collection prevents disk overflow automatically.
 
 ---
 
-## ✨ Enterprise Features
+## 🧠 Deep Dive: How It Works
 
-- 🏎️ **Zero-Copy Architecture:** Consumers read data directly from the OS Page Cache via `std::os::unix::fs::FileExt`, bypassing user-space memory entirely for maximum throughput.
-- 🧠 **Raft Consensus & High Availability:** Nodes automatically hold cryptographic elections, assign Leaders, and continuously replicate logs to Followers to guarantee fault tolerance if a server crashes.
-- 🗂️ **Multi-Topic Partitions:** Dynamically routes incoming data into isolated topic directories and dedicated `mmap` indices, allowing tens of thousands of consumers to read different topics entirely in parallel.
-- 🧹 **Automated Garbage Collection:** Logs are dynamically rotated into size-bounded segments. A background asynchronous thread continuously sweeps and purges historical segments older than the retention policy (e.g., 7 days) to protect hard drive space.
-- 🔒 **Zero-Trust Security:** Built-in TCP Firewall. All cluster nodes, producers, and consumers must complete a Protobuf-encoded API Key Handshake before establishing a stream, instantly severing unauthorized connections.
-- 📡 **Agentic AI Telemetry:** Includes a raw TCP HTTP Bridge and web dashboard for real-time visualization of the Raft cluster state, Leader elections, and internal storage offsets.
+CoreStream operates identically to industry giants, utilizing low-level hardware optimizations to maximize throughput.
+
+### 1. Zero-Trust Security Handshake
+When a client (Producer or Consumer) connects over TCP, they hit a strict firewall. The client must instantly transmit a Protobuf `AuthHandshake` containing the `CORESTREAM_API_KEY`. If they fail, the socket is aggressively dropped.
+
+### 2. The Raft Consensus Algorithm
+The cluster boots as a group of nodes. They hold a cryptographic election and choose a **Leader**. 
+When a Producer pushes a message (e.g., a "Payment Processed" event), it hits the Leader. The Leader does not immediately save it. First, it broadcasts an `AppendEntries` payload to the **Follower Nodes**. Once a majority of followers acknowledge receipt, the Leader "commits" the data, guaranteeing fault tolerance.
+
+### 3. Log Segmentation & Garbage Collection
+When data is written to disk, it isn't dumped into one massive file. CoreStream routes the data into a **Topic Folder** (e.g., `/payment_logs/`), and chunks it into `Segments` (e.g., `0000.log`, `0001.log`). 
+A background asynchronous `tokio` thread continuously sweeps the disk. If it finds a log segment older than 7 days, it safely deletes it, preventing the server from running out of hard drive space.
+
+### 4. Zero-Copy Consumer Reads
+When a Consumer wants to read the data, CoreStream bypasses the application's RAM entirely. Using `std::os::unix::fs::FileExt`, CoreStream reads the data directly from the **OS Page Cache** and blasts it straight into the TCP network socket. This is known as a "Zero-Copy" read, and it is the secret to CoreStream's blistering speed.
 
 ---
 
@@ -117,6 +130,14 @@ const CoreStreamClient = require('./corestream');
     await client.produce('clickstream', 'User clicked the checkout button.');
 })();
 ```
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions from the community to help make CoreStream the best streaming engine in the world! 
+
+Please read our [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct, how to submit pull requests, and the future development roadmap (including TLS, Consumer Groups, and more Client SDKs).
 
 ---
 
