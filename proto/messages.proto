@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package corestream;
+
+// The raw binary payload sent by the producer
+message ProducerPayload {
+    string topic = 1;
+    bytes data = 2;
+    uint64 timestamp = 3;
+}
+
+// The acknowledgment sent back from the leader node
+message ServerAck {
+    bool success = 1;
+    string error_message = 2;
+    uint64 offset = 3; // The log offset where this was saved
+}
