@@ -104,6 +104,9 @@ Open your browser to `dashboard.html` to view the beautiful visualization of you
 
 CoreStream includes native Client SDKs that handle TCP socket connections, dynamic Protobuf serialization, and security handshakes out of the box.
 
+> **💡 Integrating CoreStream?**
+> Check out our complete [Developer Integration Guide](INTEGRATION_GUIDE.md) for step-by-step instructions and code examples for connecting your Node.js and Python microservices to CoreStream!
+
 ### Python SDK
 Located in `/corestream-python/corestream.py`
 ```python
