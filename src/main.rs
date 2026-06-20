@@ -156,6 +156,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
+    // --- Garbage Collector Thread ---
+    let gc_storage = storage.clone();
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
+            let mut engine = gc_storage.lock().await;
+            // 7 days = 604800 seconds
+            if let Ok(removed) = engine.garbage_collect(604800) {
+                if removed > 0 {
+                    println!("[GC] Swept and deleted {} old log segments from disk!", removed);
+                }
+            }
+        }
+    });
+
     // --- TCP Server Listener ---
     let listener = TcpListener::bind(addr).await?;
     loop {
