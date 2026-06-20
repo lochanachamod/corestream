@@ -19,7 +19,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     for offset in 1..=5 {
         let req = ConsumerRequest {
-            topic: "system-metrics".to_string(),
+            topic: "trade_logs".to_string(),
             offset,
         };
 

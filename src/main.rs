@@ -198,7 +198,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     if !ae.entries.is_empty() {
                                         let mut engine = storage_clone.lock().await;
                                         for entry in ae.entries {
-                                            highest_offset = engine.append(&entry).unwrap_or(highest_offset);
+                                            if let Ok(payload) = ProducerPayload::decode(&entry[..]) {
+                                                let topic = if payload.topic.is_empty() { "default" } else { &payload.topic };
+                                                highest_offset = engine.append(topic, &entry).unwrap_or(highest_offset);
+                                            }
                                         }
                                         println!("[Node {}] REPLICATED {} logs from Leader {} to disk!", node_id, highest_offset, sender_id);
                                         
@@ -288,10 +291,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         continue;
                     }
 
-                    // 1. Leader writes to local storage
+                    // 1. Leader decodes the payload to get the topic
+                    let payload = ProducerPayload::decode(&payload_buf[..]).unwrap();
+                    let topic = if payload.topic.is_empty() { "default".to_string() } else { payload.topic.clone() };
+
+                    // 2. Leader writes to local storage using the specific topic
                     let offset = {
                         let mut engine = storage_clone.lock().await;
-                        engine.append(&payload_buf).unwrap_or(0)
+                        engine.append(&topic, &payload_buf).unwrap_or(0)
                     };
                     println!("[Leader {}] Saved payload to local disk (offset {}). Waiting for replication...", node_id, offset);
                     
@@ -326,8 +333,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     if let Ok(req) = ConsumerRequest::decode(&payload_buf[..]) {
                         // Attempt to read the requested offset directly from the OS Page Cache
                         let result = {
-                            let engine = storage_clone.lock().await;
-                            engine.read(req.offset)
+                            let mut engine = storage_clone.lock().await;
+                            let topic = if req.topic.is_empty() { "default" } else { &req.topic };
+                            engine.read(topic, req.offset)
                         };
 
                         let resp = match result {
@@ -367,8 +375,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         };
 
                         let storage_offset = {
-                            let engine = storage_clone.lock().await;
-                            engine.current_offset()
+                            let mut engine = storage_clone.lock().await;
+                            engine.current_offset("default").unwrap_or(1)
                         };
 
                         let resp = TelemetryResponse {
