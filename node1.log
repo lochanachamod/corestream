@@ -1,8 +1,26 @@
+warning: unused import: `rand::Rng`
+ --> src/main.rs:8:5
+  |
+8 | use rand::Rng;
+  |     ^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `payload`
+   --> src/main.rs:249:31
+    |
+249 | ...Ok(payload) =...
+    |       ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_payload`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: `corestream` (bin "corestream") generated 2 warnings (run `cargo fix --bin "corestream" -p corestream` to apply 2 suggestions)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.08s
      Running `target/debug/corestream --node-id 1 --port 9092 --peers '127.0.0.1:9093,127.0.0.1:9094'`
 CoreStream Node 1 starting on 127.0.0.1:9092
-Configured peers: ["127.0.0.1:9093", "127.0.0.1:9094"]
-[Cluster] Heartbeat from Node 2 | is_leader: false
-[Cluster] Heartbeat from Node 3 | is_leader: false
-[Cluster] Heartbeat from Node 2 | is_leader: false
-[Cluster] Heartbeat from Node 3 | is_leader: false
+
+[Node 1] ELECTION TIMEOUT! Becoming Candidate for Term 1
+
+[Node 1] ELECTION TIMEOUT! Becoming Candidate for Term 2
+
+==> [Node 1] WON ELECTION! Becoming LEADER for Term 2 <==

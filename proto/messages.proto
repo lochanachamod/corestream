@@ -2,7 +2,6 @@ syntax = "proto3";
 
 package corestream;
 
-// The raw binary payload sent by the producer
 message ProducerPayload {
     string topic = 1;
     bytes data = 2;
@@ -20,12 +19,30 @@ message ServerAck {
 message ClusterMessage {
     uint32 sender_node_id = 1;
     
-    // Using oneof so we can easily add Raft specific payloads later
+    // Using oneof to support different Raft RPCs
     oneof payload {
-        ClusterPing ping = 2;
+        RequestVote request_vote = 2;
+        VoteResponse vote_response = 3;
+        AppendEntries append_entries = 4;
     }
 }
 
-message ClusterPing {
-    bool is_leader = 1;
+// Sent by a Candidate to request votes
+message RequestVote {
+    uint64 term = 1;
+    uint64 last_log_index = 2;
+    uint64 last_log_term = 3;
+}
+
+// Sent by a Follower in response to RequestVote
+message VoteResponse {
+    uint64 term = 1;
+    bool vote_granted = 2;
+}
+
+// Sent by Leader to replicate logs and act as a Heartbeat
+message AppendEntries {
+    uint64 term = 1;
+    uint64 leader_commit = 2;
+    // Note: We'll add the actual log entries array in Phase 5
 }
