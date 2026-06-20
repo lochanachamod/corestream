@@ -1,5 +1,5 @@
 warning: unused import: `ProducerPayload`
- --> src/main.rs:4:59
+ --> src/main.rs:4:94
   |
 4 | ...e, Produ...yload, R...
   |       ^^^^^...^^^^^
@@ -7,27 +7,27 @@ warning: unused import: `ProducerPayload`
   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
 
 warning: value assigned to `is_leader` is never read
-   --> src/main.rs:276:41
+   --> src/main.rs:277:41
     |
-276 | ...et mut is_leader = false;
+277 | ...et mut is_leader = false;
     |                       ^^^^^ this value is reassigned later and never used
 ...
-280 | ...   is_le...eader;
+281 | ...   is_le...eader;
     |       -----...----- `is_leader` is overwritten here before the previous value is read
     |
     = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
 
 warning: value assigned to `term` is never read
-   --> src/main.rs:277:36
+   --> src/main.rs:278:36
     |
-277 | ...et mut term = 0;
+278 | ...et mut term = 0;
     |                  ^ this value is reassigned later and never used
 ...
-281 | ...   term ..._term;
+282 | ...   term ..._term;
     |       -----...----- `term` is overwritten here before the previous value is read
 
 warning: `corestream` (bin "corestream") generated 3 warnings (run `cargo fix --bin "corestream" -p corestream` to apply 1 suggestion)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.09s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.38s
      Running `target/debug/corestream --node-id 3 --port 9094 --peers '127.0.0.1:9092,127.0.0.1:9093'`
 CoreStream Node 3 starting on 127.0.0.1:9094
 [Node 3] REPLICATED 1 logs from Leader 1 to disk!

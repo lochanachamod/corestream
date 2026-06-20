@@ -57,3 +57,16 @@ message AppendEntriesResponse {
     bool success = 2;
     uint64 match_index = 3;
 }
+
+// Sent by a Consumer client to fetch a log
+message ConsumerRequest {
+    string topic = 1;
+    uint64 offset = 2;
+}
+
+// Sent by Server back to Consumer
+message ConsumerResponse {
+    bool success = 1;
+    string error_message = 2;
+    bytes payload_bytes = 3; // Zero-copy raw binary read from disk
+}

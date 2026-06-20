@@ -1,7 +1,7 @@
 use clap::Parser;
 use corestream::messages::cluster_message::Payload;
 use corestream::messages::{
-    AppendEntries, AppendEntriesResponse, ClusterMessage, ProducerPayload, RequestVote, ServerAck, VoteResponse,
+    AppendEntries, AppendEntriesResponse, ClusterMessage, ConsumerRequest, ConsumerResponse, ProducerPayload, RequestVote, ServerAck, VoteResponse,
 };
 use corestream::storage::StorageEngine;
 use prost::Message;
@@ -15,6 +15,7 @@ use tokio::time::sleep;
 
 const MSG_TYPE_PRODUCER: u8 = 0;
 const MSG_TYPE_CLUSTER: u8 = 1;
+const MSG_TYPE_CONSUMER: u8 = 2;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -319,6 +320,38 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         let ack_len = (ack_buf.len() as u32).to_be_bytes();
                         let _ = socket.write_all(&ack_len).await;
                         let _ = socket.write_all(&ack_buf).await;
+                    }
+                } else if msg_type == MSG_TYPE_CONSUMER {
+                    if let Ok(req) = ConsumerRequest::decode(&payload_buf[..]) {
+                        // Attempt to read the requested offset directly from the OS Page Cache
+                        let result = {
+                            let engine = storage_clone.lock().await;
+                            engine.read(req.offset)
+                        };
+
+                        let resp = match result {
+                            Ok(Some(bytes)) => ConsumerResponse {
+                                success: true,
+                                error_message: String::new(),
+                                payload_bytes: bytes,
+                            },
+                            Ok(None) => ConsumerResponse {
+                                success: false,
+                                error_message: String::from("Offset not found"),
+                                payload_bytes: vec![],
+                            },
+                            Err(e) => ConsumerResponse {
+                                success: false,
+                                error_message: e.to_string(),
+                                payload_bytes: vec![],
+                            },
+                        };
+
+                        let mut resp_buf = Vec::new();
+                        resp.encode(&mut resp_buf).unwrap();
+                        let resp_len = (resp_buf.len() as u32).to_be_bytes();
+                        let _ = socket.write_all(&resp_len).await;
+                        let _ = socket.write_all(&resp_buf).await;
                     }
                 }
             }

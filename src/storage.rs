@@ -23,6 +23,7 @@ impl StorageEngine {
 
         // Open the append-only commit log
         let log_file = OpenOptions::new()
+            .read(true)
             .create(true)
             .append(true)
             .open(&log_path)?;
@@ -79,5 +80,36 @@ impl StorageEngine {
         self.current_offset += 1;
 
         Ok(assigned_offset)
+    }
+
+    pub fn read(&self, offset: u64) -> io::Result<Option<Vec<u8>>> {
+        if offset == 0 || offset >= self.current_offset {
+            return Ok(None);
+        }
+
+        let idx_pos = (offset as usize - 1) * INDEX_ENTRY_SIZE;
+        
+        let mut pos_bytes = [0u8; 8];
+        pos_bytes.copy_from_slice(&self.index_mmap[idx_pos..idx_pos + 8]);
+        let pos = u64::from_be_bytes(pos_bytes);
+        
+        let mut len_bytes = [0u8; 8];
+        len_bytes.copy_from_slice(&self.index_mmap[idx_pos + 8..idx_pos + 16]);
+        let len = u64::from_be_bytes(len_bytes);
+
+        // Read directly from the OS Page Cache using pread (read_exact_at)
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::FileExt;
+            let mut buf = vec![0u8; len as usize];
+            self.log_file.read_exact_at(&mut buf, pos)?;
+            return Ok(Some(buf));
+        }
+
+        #[cfg(not(unix))]
+        {
+            // Fallback for non-unix, though this project targets WSL/Linux
+            return Err(io::Error::new(io::ErrorKind::Unsupported, "Only unix OS page cache reads are supported"));
+        }
     }
 }
